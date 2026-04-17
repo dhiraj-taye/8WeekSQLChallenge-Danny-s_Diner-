@@ -2,7 +2,7 @@
 
 This repository contains my solution to **Case Study #1 - Danny's Diner** from the **8 Week SQL Challenge** by Danny Ma.
 
-The goal of this case study is to analyze customer purchase behavior, menu preferences, visit patterns, and loyalty program impact using SQL. The case study includes 3 datasets: `sales`, `menu`, and `members`. :contentReference[oaicite:1]{index=1}
+The goal of this case study is to analyze customer purchase behavior, menu preferences, visit patterns, and loyalty program impact using SQL. The case study includes 3 datasets: `sales`, `menu`, and `members`.
 
 ## Problem Statement
 
