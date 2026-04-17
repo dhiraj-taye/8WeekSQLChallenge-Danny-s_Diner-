@@ -66,6 +66,17 @@ These topics align closely with the skills emphasized in the case study and its 
 ### Approach
 I joined the `sales` and `menu` tables using `product_id` so I could access the price of each ordered item. Then I used `SUM(price)` and grouped by `customer_id` to calculate the total amount spent by each customer.
 
+```sql
+SELECT 
+    s.customer_id, 
+    SUM(m.price) AS total_spent
+FROM sales s
+JOIN menu m 
+    ON s.product_id = m.product_id
+GROUP BY s.customer_id;
+```
+
+
 ---
 
 ## 2. How many days has each customer visited the restaurant?
