@@ -40,7 +40,7 @@ These tables and their structure are defined in the official case study. :conten
 ## Tools Used
 
 - MySQL 8+
-- DB Fiddle / SQL editor
+- MySQL
 - GitHub for documentation and version control
 
 ## SQL Concepts Used
