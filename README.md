@@ -83,21 +83,53 @@ GROUP BY s.customer_id;
 
 ### Approach
 A customer can place multiple orders on the same day, so I used `COUNT(DISTINCT order_date)` to count unique visit days instead of total orders. Then I grouped the result by `customer_id`.
-
+```sql
+SELECT 
+    customer_id, 
+    COUNT(DISTINCT order_date) AS visit_days
+FROM sales
+GROUP BY customer_id;
+```
 ---
 
 ## 3. What was the first item from the menu purchased by each customer?
 
 ### Approach
 To find each customer’s first purchase, I ranked orders by `order_date` using a window function partitioned by `customer_id`. Then I filtered only the first-ranked rows and joined with the `menu` table to get the product name.
-
+```sql
+SELECT 
+    t.customer_id, 
+    t.order_date, 
+    m.product_name
+FROM (
+    SELECT 
+        customer_id,
+        order_date,
+        product_id,
+        RANK() OVER (PARTITION BY customer_id ORDER BY order_date) AS rnk
+    FROM sales
+) t
+JOIN menu m
+    ON t.product_id = m.product_id
+WHERE t.rnk = 1;
+```
 ---
 
 ## 4. What is the most purchased item on the menu and how many times was it purchased by all customers?
 
 ### Approach
 I joined `sales` with `menu`, grouped by `product_name`, and counted how many times each item appeared in the sales table. Then I sorted the result in descending order and selected the top item.
-
+```sql
+SELECT 
+    m.product_name, 
+    COUNT(*) AS total_purchase
+FROM sales s
+JOIN menu m
+    ON s.product_id = m.product_id
+GROUP BY m.product_name
+ORDER BY total_purchase DESC
+LIMIT 1;
+```
 ---
 
 ## 5. Which item was the most popular for each customer?
@@ -105,6 +137,27 @@ I joined `sales` with `menu`, grouped by `product_name`, and counted how many ti
 ### Approach
 I first counted how many times each customer ordered each item using `GROUP BY customer_id, product_name`. Then I used `RANK()` partitioned by customer to identify the highest-frequency item for each customer.
 
+```sql
+SELECT 
+    customer_id, 
+    product_name, 
+    order_count
+FROM (
+    SELECT 
+        s.customer_id,
+        m.product_name,
+        COUNT(*) AS order_count,
+        RANK() OVER (
+            PARTITION BY s.customer_id 
+            ORDER BY COUNT(*) DESC
+        ) AS rnk
+    FROM sales s
+    JOIN menu m 
+        ON s.product_id = m.product_id
+    GROUP BY s.customer_id, m.product_name
+) t
+WHERE rnk = 1;
+```
 ---
 
 ## 6. Which item was purchased first by the customer after they became a member?
@@ -112,6 +165,29 @@ I first counted how many times each customer ordered each item using `GROUP BY c
 ### Approach
 I joined the `sales`, `members`, and `menu` tables, filtered orders that happened on or after the membership join date, and used `ROW_NUMBER()` to rank purchases by date for each customer. Then I selected the first purchase after membership.
 
+```sql
+SELECT 
+    customer_id, 
+    product_name, 
+    order_date
+FROM (
+    SELECT 
+        s.customer_id,
+        m.product_name,
+        s.order_date,
+        ROW_NUMBER() OVER (
+            PARTITION BY s.customer_id 
+            ORDER BY s.order_date
+        ) AS rn
+    FROM sales s
+    JOIN members mem 
+        ON s.customer_id = mem.customer_id
+    JOIN menu m 
+        ON s.product_id = m.product_id
+    WHERE s.order_date >= mem.join_date
+) t
+WHERE rn = 1;
+```
 ---
 
 ## 7. Which item was purchased just before the customer became a member?
@@ -119,6 +195,29 @@ I joined the `sales`, `members`, and `menu` tables, filtered orders that happene
 ### Approach
 I filtered only the orders placed before the membership join date. Then I ranked those purchases in descending order of `order_date` for each customer and selected the most recent one before membership.
 
+```sql
+SELECT 
+    customer_id,
+    product_name,
+    order_date
+FROM (
+    SELECT 
+        s.customer_id,
+        m.product_name,
+        s.order_date,
+        ROW_NUMBER() OVER (
+            PARTITION BY s.customer_id
+            ORDER BY s.order_date DESC
+        ) AS rnk
+    FROM sales s
+    JOIN members mem
+        ON s.customer_id = mem.customer_id
+    JOIN menu m
+        ON s.product_id = m.product_id
+    WHERE s.order_date < mem.join_date
+) t
+WHERE rnk = 1;
+```
 ---
 
 ## 8. What is the total items and amount spent for each member before they became a member?
@@ -128,6 +227,19 @@ I filtered transactions before the join date, then grouped by `customer_id`. I u
 - `COUNT(*)` to get total number of items purchased
 - `SUM(price)` to calculate total amount spent
 
+```sql
+SELECT 
+    s.customer_id, 
+    COUNT(*) AS total_items,
+    SUM(m.price) AS total_spent
+FROM sales s
+JOIN members mem
+    ON s.customer_id = mem.customer_id
+JOIN menu m
+    ON s.product_id = m.product_id
+WHERE s.order_date < mem.join_date
+GROUP BY s.customer_id;
+```
 ---
 
 ## 9. If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
@@ -139,10 +251,37 @@ I used a `CASE WHEN` statement to apply different point rules:
 
 Then I summed the calculated points for each customer.
 
+```sql
+SELECT 
+    s.customer_id, 
+    COUNT(*) AS total_items,
+    SUM(m.price) AS total_spent
+FROM sales s
+JOIN members mem
+    ON s.customer_id = mem.customer_id
+JOIN menu m
+    ON s.product_id = m.product_id
+WHERE s.order_date < mem.join_date
+GROUP BY s.customer_id;
+```
+
 ---
 
 ## 10. In the first week after a customer joins the program (including their join date) they earn 2x points on all items, not just sushi - how many points do customer A and B have at the end of January?
 
+```sql
+SELECT 
+    s.customer_id, 
+    COUNT(*) AS total_items,
+    SUM(m.price) AS total_spent
+FROM sales s
+JOIN members mem
+    ON s.customer_id = mem.customer_id
+JOIN menu m
+    ON s.product_id = m.product_id
+WHERE s.order_date < mem.join_date
+GROUP BY s.customer_id;
+```
 ### Approach
 This question required combining date logic and points logic.
 
@@ -171,8 +310,8 @@ Some of the main things I improved through this project:
 
 # Files in This Repository
 
-- `dannys_diner_setup.sql` → schema and sample data
-- `dannys_diner_solutions.sql` → solutions for all 10 case study questions
+- `Tables.sql` → schema and sample data
+- `Queries.sql` → solutions for all 10 case study questions
 - `README.md` → project overview and explanation
 
 ---
